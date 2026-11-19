@@ -1,6 +1,7 @@
-// Service worker: slovník (4 MB) a program se uloží, takže se příště načtou hned i bez internetu.
-const CACHE = "korektor-v1";
-const SOUBORY = ["./", "index.html", "hunspell.js", "slovnik/cs_CZ.aff", "slovnik/cs_CZ.dic", "manifest.webmanifest", "ikona-192.png", "ikona-512.png"];
+// Service worker pro všechny čtyři jazyky (/korektor/, /de/, /en/, /sv/).
+// Program se uloží hned, slovník daného jazyka až při prvním použití – pak funguje i bez internetu.
+const CACHE = "korektor-v2";
+const SOUBORY = ["hunspell.js", "jazyky.js"];
 self.addEventListener("install", e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(SOUBORY))); });
 self.addEventListener("activate", e => e.waitUntil(self.clients.claim().then(() => caches.keys()).then(k =>
   Promise.all(k.filter(n => n.startsWith("korektor-") && n !== CACHE).map(n => caches.delete(n))))));
@@ -15,5 +16,5 @@ self.addEventListener("fetch", e => {
     ? new Request(e.request.url, { cache: "no-cache", credentials: "same-origin" })
     : new Request(e.request, { cache: "no-cache" });
   e.respondWith(fetch(pozadavek).then(r => { const k = r.clone(); caches.open(CACHE).then(c => c.put(e.request, k)); return r; })
-    .catch(() => caches.match(e.request).then(r => r || caches.match("index.html"))));
+    .catch(() => caches.match(e.request, { ignoreSearch: true })));
 });
