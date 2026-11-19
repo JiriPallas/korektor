@@ -20,14 +20,17 @@
   /* ---- výběr dokumentu ---- */
   #vyber { background: #BFF0BF; color: #000; }
   #vyber h1 { margin: 0; font-size: calc(40px * var(--m)); }
-  #zona { flex: 1; border: 8px dashed #000; border-radius: 24px; display: flex; flex-direction: column;
+  #tri { flex: 1; display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 2fr; gap: 24px; min-height: 0; }
+  #zona { grid-area: 1 / 1 / 3 / 2; border: 8px dashed #000; border-radius: 24px; display: flex; flex-direction: column;
           align-items: center; justify-content: center; gap: 20px; text-align: center; background: #E8FBE8;
           font-size: calc(40px * var(--m)); font-weight: bold; }
   #zona.nad { background: #FFE000; border-style: solid; }
   #zona small { font-size: calc(24px * var(--m)); font-weight: normal; }
-  #vyber .rada { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; height: calc(150px * var(--m)); }
-  #vyber button { background: #fff; color: #000; border: 4px solid #000; }
-  #b_vybrat { background: #000 !important; color: #FFE000 !important; }
+  #vyber button { background: #fff; color: #000; border: 4px solid #000; font-size: calc(36px * var(--m)); }
+  #b_vybrat { grid-area: 1 / 2 / 3 / 3; background: #000 !important; color: #FFE000 !important; font-size: calc(44px * var(--m)) !important; }
+  #b_zavrit1 { grid-area: 1 / 3 / 2 / 4; }
+  #b_posledni { grid-area: 2 / 3 / 3 / 4; overflow-wrap: anywhere; }
+  #b_posledni:disabled { visibility: hidden; }
   #v_stav { font-size: calc(26px * var(--m)); font-weight: bold; min-height: 1.3em; }
 
   /* ---- oprava ---- */
@@ -40,15 +43,18 @@
   .popis { font-size: calc(22px * var(--m)); }
   #navrh { font: bold calc(72px * var(--m)) "Segoe UI", system-ui, sans-serif; color: #000; background: #fff;
            border: 6px solid #FFE000; border-radius: 12px; padding: 4px 16px; width: 100%; }
-  #veta { flex: 2; font-size: calc(36px * var(--m)); overflow: hidden; line-height: 1.3; min-height: 0; }
+  #veta { flex: 2; font-size: calc(48px * var(--m)); overflow: hidden; line-height: 1.3; min-height: 0; }
   #veta b { color: #FFE000; text-decoration: underline; }
   #dole { display: grid; grid-template-columns: 2fr 3fr 3fr; gap: 18px; flex: 3; min-height: 0; }
   #b_vratit { background: #1E3F85 !important; color: #fff !important; font-size: calc(26px * var(--m)); }
   #b_preskocit { background: #FFE000 !important; border-color: #FFE000 !important; font-size: calc(36px * var(--m)); }
   #b_opravit { background: #00702E !important; color: #fff !important; font-size: calc(36px * var(--m)); }
   #stav { display: flex; gap: 18px; align-items: center; }
-  #stav span { flex: 1; color: #BFD4FF; font-size: calc(22px * var(--m)); }
+  #stav span { flex: 1; color: #FFFFFF; font-size: calc(32px * var(--m)); font-weight: bold; }
   #stav button { font-size: calc(22px * var(--m)); background: #1E3F85 !important; color: #fff !important; }
+  #stav button.zavrit, #vyber button.zavrit { background: #A00000 !important; color: #fff !important; border-color: #A00000 !important; }
+  #b_vsechny { background: #00702E !important; color: #fff !important; font-size: calc(24px * var(--m)); display: none; }
+  #b_vsechny.ukazat { display: block; }
   #b_ulozit { background: #FFE000 !important; color: #000 !important; border-color: #FFE000 !important; }
 
   #uvod { position: fixed; inset: 0; background: #0B2A66; color: #fff; display: flex; flex-direction: column;
@@ -63,16 +69,18 @@
 
 <div id="vyber" class="stranka ukazana">
   <h1>KOREKTOR – oprava překlepů</h1>
-  <div id="zona">⬇&nbsp; SEM PŘETÁHNĚTE DOKUMENT&nbsp; ⬇<small>Word (.docx) nebo text (.txt). Původní dokument se změní až po kliknutí na ULOŽIT OPRAVY.</small></div>
-  <div id="v_stav"></div>
-  <div class="rada">
-    <button id="b_vybrat" data-hlas="Vybrat dokument">📂&nbsp; VYBRAT DOKUMENT</button>
-    <button id="b_posledni" data-hlas="Pokračovat v posledním dokumentu">↻&nbsp; POKRAČOVAT</button>
+  <div id="tri">
+    <div id="zona">⬇<br>SEM PŘETÁHNĚTE DOKUMENT<small>Word (.docx) nebo text (.txt).<br>Dokument se změní až po kliknutí na ULOŽIT OPRAVY.</small></div>
+    <button id="b_vybrat" data-hlas="Vybrat dokument">📂<br>VYBRAT<br>DOKUMENT</button>
+    <button id="b_zavrit1" class="zavrit" data-hlas="Zavřít korektor">✕&nbsp; ZAVŘÍT</button>
+    <button id="b_posledni" data-hlas="Pokračovat v posledním dokumentu">↻ POKRAČOVAT</button>
   </div>
+  <div id="v_stav"></div>
 </div>
 
 <div id="oprava" class="stranka">
   <div id="horni"><div id="slovo"></div>
+    <button id="b_vsechny" data-hlas="Opravit všechny výskyty">✓✓&nbsp; OPRAVIT VŠECHNY</button>
     <button id="b_zapamatovat" data-hlas="Zapamatovat. Slovo je správně.">★&nbsp; ZAPAMATOVAT</button></div>
   <div class="popis">Oprava (můžete přepsat):</div>
   <input id="navrh" autocomplete="off" spellcheck="false" data-hlas="Pole pro opravu">
@@ -84,7 +92,8 @@
   </div>
   <div id="stav"><span id="l_stav"></span>
     <button id="b_ulozit" data-hlas="Uložit opravy do dokumentu">💾&nbsp; ULOŽIT OPRAVY</button>
-    <button id="b_dokumenty" data-hlas="Jiný dokument">📂&nbsp; JINÝ DOKUMENT</button></div>
+    <button id="b_dokumenty" data-hlas="Jiný dokument">📂&nbsp; JINÝ DOKUMENT</button>
+    <button id="b_zavrit2" class="zavrit" data-hlas="Zavřít korektor">✕&nbsp; ZAVŘÍT</button></div>
 </div>
 
 <script src="hunspell.js"></script>
@@ -137,9 +146,12 @@ function promluv(text, id, potom) {
 /* ============================================================ slovník */
 let hun = null, mujSlovnik = new Set(ls.get("slovnik", [])), cache = new Map();
 const slovnikPripraven = (async () => {
-  const [a, d] = await Promise.all(["slovnik/cs_CZ.aff", "slovnik/cs_CZ.dic"].map(f => fetch(f).then(r => r.arrayBuffer())));
-  hun = await nactiHunspell(a, d);
+  if (typeof nactiHunspell !== "function") throw new Error("Chybí soubor hunspell.js.");
+  const [a, d] = await Promise.all(["slovnik/cs_CZ.aff", "slovnik/cs_CZ.dic"].map(async f => {
+    const r = await fetch(f); if (!r.ok) throw new Error(`Chybí soubor ${f} (chyba ${r.status}).`); return r.arrayBuffer(); }));
+  hun = await Promise.race([nactiHunspell(a, d), new Promise((_, ne) => setTimeout(() => ne(new Error("Slovník se načítá příliš dlouho.")), 30000))]);
 })();
+slovnikPripraven.catch(e => { $("v_stav").textContent = "⚠ Slovník se nepodařilo načíst: " + e.message; });
 function jeSpravne(s) {
   if (mujSlovnik.has(s) || mujSlovnik.has(s.toLowerCase())) return true;
   let v = cache.get(s); if (v === undefined) { v = hun.spell(s.replace(/’/g, "'")); cache.set(s, v); } return v;
@@ -320,8 +332,11 @@ addEventListener("resize", nastavMeritko); nastavMeritko();
 
 async function otevriHandle(h, uvod = "") {
   try {
+    $("v_stav").textContent = `Otevírám ${h.name}…`;
     const f = await h.getFile();
+    if (!hun) $("v_stav").textContent = "Načítám slovník…";
     await slovnikPripraven;
+    $("v_stav").textContent = "Hledám chyby…";
     const m = await nactiModel(f);
     handle = h; model = m; klic = `${f.name}|${f.size}`;
     const ulozene = ls.get("rozpracovano." + f.name, null);
@@ -333,6 +348,7 @@ async function otevriHandle(h, uvod = "") {
     pozice = ls.get("pozice." + f.name, [0, 0]); if (pozice[0] >= model.texty.length) pozice = [0, 0];
     await dbPis("posledni", h);
     celkem = spocitej(model.texty);
+    $("v_stav").textContent = "";
     ukazStranku("oprava");
     if (!celkem) { hotovo(`${uvod} V dokumentu jsem nenašel žádné chyby.`); return; }
     dalsi(`${uvod} ${nazev(f.name)}. ${pocetChyb(celkem)}`);
@@ -355,7 +371,13 @@ function dalsi(uvod = "") {
   if (!ch) { hotovo(`${uvod} Konec dokumentu. Další chyby už nejsou.`); return; }
   ukazChybu(ch, uvod);
 }
+function vyskyty(slovo) {             // všechna místa se stejně napsaným chybným slovem
+  const v = [];
+  model.texty.forEach((t, i) => { for (const [a, b, s] of kandidati(t)) if (s === slovo) v.push([i, a, b]); });
+  return v;
+}
 function ukazChybu(ch, uvod = "") {
+  clearTimeout(napsano);
   chyba = ch; const [i, a, b, s] = ch, text = model.texty[i];
   $("slovo").textContent = s;
   $("slovo").style.fontSize = `calc(${s.length <= 12 ? 96 : Math.max(48, Math.round(96 * 12 / s.length))}px * var(--m))`;
@@ -363,7 +385,10 @@ function ukazChybu(ch, uvod = "") {
   let k = Math.min(...[".", "!", "?", "…"].map(c => { const x = text.indexOf(c, b); return x < 0 ? Infinity : x + 1; })); if (k === Infinity) k = text.length;
   if (k - z > 240) { z = Math.max(z, a - 120); k = Math.min(k, b + 120); }
   $("veta").innerHTML = esc(text.slice(z, a)) + "<b>" + esc(text.slice(a, b)) + "</b>" + esc(text.slice(b, k));
-  const n = navrhy(s);
+  const n = navrhy(s), kolik = vyskyty(s).length;
+  $("b_vsechny").classList.toggle("ukazat", kolik > 1);
+  $("b_vsechny").innerHTML = `✓✓&nbsp; OPRAVIT VŠECHNY (${kolik})`;
+  const oVyskytech = kolik > 1 ? ` Toto slovo je v dokumentu ${kolik}krát. Všechny opravíte tlačítkem Opravit všechny, nebo pravým tlačítkem myši na Opravit a dál.` : "";
   $("navrh").value = n[0] || ""; $("navrh").placeholder = "napište opravu";
   for (const id of ["b_preskocit", "b_opravit", "b_zapamatovat"]) $(id).disabled = false;
   $("b_vratit").disabled = !historie.length;
@@ -371,13 +396,14 @@ function ukazChybu(ch, uvod = "") {
   $("l_stav").textContent = `zbývá chyb: ${zbyva}   ·   ${handle.name}`;
   obnovUlozit();
   const u = uvod ? uvod + " " : "";
-  rekni(n.length ? `${u}Možná chyba: ${s}. Hláskuji: ${hlaskuj(s)}. Návrh: ${n[0]}. Hláskuji: ${hlaskuj(n[0])}.`
-                 : `${u}Možná chyba: ${s}. Hláskuji: ${hlaskuj(s)}. Návrh nemám. Opravu můžete napsat, nebo přeskočit.`);
+  rekni((n.length ? `${u}Možná chyba: ${s}. Hláskuji: ${hlaskuj(s)}. Návrh: ${n[0]}. Hláskuji: ${hlaskuj(n[0])}.`
+                  : `${u}Možná chyba: ${s}. Hláskuji: ${hlaskuj(s)}. Návrh nemám. Opravu můžete napsat, nebo přeskočit.`) + oVyskytech);
 }
 function hotovo(text) {
   chyba = null; $("slovo").textContent = "HOTOVO  ✓"; $("slovo").style.fontSize = "calc(72px * var(--m))";
   $("veta").textContent = text.trim(); $("navrh").value = "";
   for (const id of ["b_preskocit", "b_opravit", "b_zapamatovat"]) $(id).disabled = true;
+  $("b_vsechny").classList.remove("ukazat");
   $("b_vratit").disabled = !historie.length; pozice = [0, 0]; ulozRozpracovane();
   rekni(text + (opravy.length ? " Nezapomeňte kliknout na Uložit opravy." : ""));
 }
@@ -401,10 +427,28 @@ function oprav() {
   opravy.push(o); historie.push({ druh: "opraveno", chyba, o });
   pozice = [i, a + nove.length]; ulozRozpracovane(); dalsi("Opraveno.");
 }
+function opravVsechny() {
+  if (!chyba) return; const [i0, a0, , s] = chyba, nove = $("navrh").value.trim();
+  if (!nove) { rekni("Napište opravu, nebo klikněte na Přeskočit."); return; }
+  if (nove === s) return preskoc();
+  const mista = vyskyty(s), skupina = [];
+  for (let k = mista.length - 1; k >= 0; k--) {          // od konce, aby se pozice neposouvaly
+    const [i, a, b] = mista[k], t = model.texty[i];
+    const o = { i, a, stare: s, nove, pred: t.slice(Math.max(0, a - 30), a), po: t.slice(b, b + 30) };
+    if (nahradVModelu(model, i, a, b, s, nove)) { opravy.push(o); skupina.push(o); }
+  }
+  historie.push({ druh: "vsechny", chyba, skupina });
+  pozice = [i0, a0 + nove.length]; ulozRozpracovane();
+  dalsi(`Opraveno všech ${skupina.length} výskytů.`);
+}
 function vrat() {
   const h = historie.pop(); if (!h) { rekni("Není co vrátit."); return; }
   const [i, a, , s] = h.chyba; let uvod = "Zpět.";
   if (h.druh === "opraveno") { nahradVModelu(model, i, a, a + h.o.nove.length, h.o.nove, s); opravy.splice(opravy.indexOf(h.o), 1); uvod = `Vráceno: ${s}.`; }
+  if (h.druh === "vsechny") {
+    for (const o of [...h.skupina].reverse()) { nahradVModelu(model, o.i, o.a, o.a + o.nove.length, o.nove, o.stare); opravy.splice(opravy.indexOf(o), 1); }
+    uvod = `Vráceno ${h.skupina.length} oprav: ${s}.`;
+  }
   if (h.druh === "zapamatovano") { mujSlovnik.delete(s); ls.set("slovnik", [...mujSlovnik]); cache.clear(); uvod = `Zapomenuto: ${s}.`; }
   pozice = [i, a]; ulozRozpracovane(); ukazChybu([i, a, a + s.length, s], uvod);
 }
@@ -475,7 +519,7 @@ async function zpetNaVyber() {
 }
 async function obnovVyber() {
   const h = await dbCti("posledni");
-  $("b_posledni").innerHTML = h ? `↻&nbsp; POKRAČOVAT: ${esc(nazev(h.name)).toUpperCase()}` : "↻&nbsp; POKRAČOVAT";
+  $("b_posledni").innerHTML = h ? `↻ POKRAČOVAT S<br>${esc(nazev(h.name)).toUpperCase()}` : "↻ POKRAČOVAT";
   $("b_posledni").disabled = !h;
 }
 
@@ -496,12 +540,25 @@ const klik = (id, f) => $(id).addEventListener("click", () => f());
 klik("b_vybrat", vyberDokument); klik("b_posledni", pokracuj);
 klik("b_preskocit", preskoc); klik("b_opravit", oprav); klik("b_zapamatovat", zapamatuj); klik("b_vratit", vrat);
 klik("b_ulozit", ulozOpravy); klik("b_dokumenty", zpetNaVyber);
+klik("b_vsechny", opravVsechny);
+$("b_opravit").addEventListener("contextmenu", e => { e.preventDefault(); if ($("b_vsechny").classList.contains("ukazat")) opravVsechny(); else oprav(); });
+let zavritCas = 0;
+function zavri() {
+  if (opravy.length && performance.now() - zavritCas > 5000) {
+    zavritCas = performance.now();
+    rekni(`Máte ${opravy.length} neuložených oprav. Uložte je tlačítkem Uložit opravy. Nebo klikněte znovu na Zavřít – opravy zůstanou zapamatované na příště.`);
+    return;
+  }
+  ulozRozpracovane(); window.close();
+  setTimeout(() => rekni("Okno zavřete křížkem vpravo nahoře."), 300);
+}
+klik("b_zavrit1", zavri); klik("b_zavrit2", zavri);
 for (const el of document.querySelectorAll("[data-hlas]"))
-  el.addEventListener("mouseenter", () => { if (!el.disabled && spusteno) rekni(el.textContent.includes("POKRAČOVAT:") ? "Pokračovat: " + el.textContent.split(":")[1] : el.dataset.hlas); });
+  el.addEventListener("mouseenter", () => { if (!el.disabled && spusteno) rekni(el.id === "b_posledni" ? "Pokračovat s dokumentem " + el.innerText.split("\n").slice(1).join(" ").toLowerCase() : el.dataset.hlas); });
 let napsano = null;
 $("navrh").addEventListener("input", () => { clearTimeout(napsano); napsano = setTimeout(() => { const t = $("navrh").value.trim(); if (t) rekni(`Napsáno: ${t}. Hláskuji: ${hlaskuj(t)}.`); }, 900); });
 $("navrh").addEventListener("keydown", e => { if (e.key === "Enter") oprav(); });
-addEventListener("beforeunload", e => { if (opravy.length) { e.preventDefault(); e.returnValue = ""; } });
+addEventListener("pagehide", () => ulozRozpracovane());   // neuložené opravy zůstanou zapamatované
 
 let spusteno = false;
 function start(tise = false) {
