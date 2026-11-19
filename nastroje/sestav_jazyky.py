@@ -46,15 +46,15 @@ def ikona(kod, cil):
     ram.paste(f, (12, 12))
     zaklad.paste(ram, (512 - w - 24 - 18, 512 - h - 24 - 18))
     cil.mkdir(parents=True, exist_ok=True)
-    zaklad.save(cil / "ikona-512.png")
-    zaklad.resize((192, 192), Image.LANCZOS).save(cil / "ikona-192.png")
+    zaklad.save(cil / "ikona-vlajka-512.png")
+    zaklad.resize((192, 192), Image.LANCZOS).save(cil / "ikona-vlajka-192.png")
 
 def manifest(kod, cil):
     nazev, dlouhy, lang = JAZYKY[kod]
     m = {"name": dlouhy, "short_name": nazev, "id": "./", "start_url": "./", "scope": "./", "lang": lang,
          "display": "standalone", "background_color": "#0B2A66", "theme_color": "#0B2A66",
-         "icons": [{"src": "ikona-192.png", "sizes": "192x192", "type": "image/png"},
-                   {"src": "ikona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}]}
+         "icons": [{"src": "ikona-vlajka-192.png", "sizes": "192x192", "type": "image/png"},
+                   {"src": "ikona-vlajka-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}]}
     (cil / "manifest.webmanifest").write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
 
 sablona = (KOREN / "index.html").read_text(encoding="utf-8")
