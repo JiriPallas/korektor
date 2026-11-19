@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KOREKTOR</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="ikona-192.png">
+<meta name="theme-color" content="#0B2A66">
+<style>
+  :root { --m: 1; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Segoe UI", system-ui, sans-serif; }
+  .stranka { position: fixed; inset: 0; display: none; flex-direction: column; padding: 20px 30px; gap: 14px; }
+  .stranka.ukazana { display: flex; }
+  button { font: bold calc(30px * var(--m)) "Segoe UI", system-ui, sans-serif; border-radius: 12px; cursor: pointer;
+           padding: 8px 14px; min-height: 0; }
+  button:disabled { background: #556080 !important; color: #8890A8 !important; border-color: #556080 !important; cursor: default; }
+
+  /* ---- výběr dokumentu ---- */
+  #vyber { background: #BFF0BF; color: #000; }
+  #vyber h1 { margin: 0; font-size: calc(40px * var(--m)); }
+  #zona { flex: 1; border: 8px dashed #000; border-radius: 24px; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; gap: 20px; text-align: center; background: #E8FBE8;
+          font-size: calc(40px * var(--m)); font-weight: bold; }
+  #zona.nad { background: #FFE000; border-style: solid; }
+  #zona small { font-size: calc(24px * var(--m)); font-weight: normal; }
+  #vyber .rada { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; height: calc(150px * var(--m)); }
+  #vyber button { background: #fff; color: #000; border: 4px solid #000; }
+  #b_vybrat { background: #000 !important; color: #FFE000 !important; }
+  #v_stav { font-size: calc(26px * var(--m)); font-weight: bold; min-height: 1.3em; }
+
+  /* ---- oprava ---- */
+  #oprava { background: #0B2A66; color: #fff; }
+  #horni { display: flex; gap: 18px; align-items: stretch; flex: 2; min-height: 0; }
+  #slovo { flex: 1; color: #FFE000; font-weight: bold; font-size: calc(96px * var(--m)); overflow: hidden;
+           white-space: nowrap; text-overflow: ellipsis; align-self: center; }
+  #oprava button { background: #fff; color: #000; border: 4px solid #fff; }
+  #b_zapamatovat { background: #1E3F85 !important; color: #fff !important; font-size: calc(24px * var(--m)); }
+  .popis { font-size: calc(22px * var(--m)); }
+  #navrh { font: bold calc(72px * var(--m)) "Segoe UI", system-ui, sans-serif; color: #000; background: #fff;
+           border: 6px solid #FFE000; border-radius: 12px; padding: 4px 16px; width: 100%; }
+  #veta { flex: 2; font-size: calc(36px * var(--m)); overflow: hidden; line-height: 1.3; min-height: 0; }
+  #veta b { color: #FFE000; text-decoration: underline; }
+  #dole { display: grid; grid-template-columns: 2fr 3fr 3fr; gap: 18px; flex: 3; min-height: 0; }
+  #b_vratit { background: #1E3F85 !important; color: #fff !important; font-size: calc(26px * var(--m)); }
+  #b_preskocit { background: #FFE000 !important; border-color: #FFE000 !important; font-size: calc(36px * var(--m)); }
+  #b_opravit { background: #00702E !important; color: #fff !important; font-size: calc(36px * var(--m)); }
+  #stav { display: flex; gap: 18px; align-items: center; }
+  #stav span { flex: 1; color: #BFD4FF; font-size: calc(22px * var(--m)); }
+  #stav button { font-size: calc(22px * var(--m)); background: #1E3F85 !important; color: #fff !important; }
+  #b_ulozit { background: #FFE000 !important; color: #000 !important; border-color: #FFE000 !important; }
+
+  #uvod { position: fixed; inset: 0; background: #0B2A66; color: #fff; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; gap: 30px; z-index: 10; cursor: pointer; text-align: center;
+          border: 24px solid #FFE000; }
+  #uvod h1 { color: #FFE000; font-size: 64px; margin: 0; }
+  #uvod p { font-size: 36px; margin: 0; }
+</style>
+</head>
+<body>
+<div id="uvod"><h1>KOREKTOR</h1><p>Klikněte kamkoli<br>nebo stiskněte mezerník</p><p style="font-size:22px">(zkušební webová verze)</p></div>
+
+<div id="vyber" class="stranka ukazana">
+  <h1>KOREKTOR – oprava překlepů</h1>
+  <div id="zona">⬇&nbsp; SEM PŘETÁHNĚTE DOKUMENT&nbsp; ⬇<small>Word (.docx) nebo text (.txt). Původní dokument se změní až po kliknutí na ULOŽIT OPRAVY.</small></div>
+  <div id="v_stav"></div>
+  <div class="rada">
+    <button id="b_vybrat" data-hlas="Vybrat dokument">📂&nbsp; VYBRAT DOKUMENT</button>
+    <button id="b_posledni" data-hlas="Pokračovat v posledním dokumentu">↻&nbsp; POKRAČOVAT</button>
+  </div>
+</div>
+
+<div id="oprava" class="stranka">
+  <div id="horni"><div id="slovo"></div>
+    <button id="b_zapamatovat" data-hlas="Zapamatovat. Slovo je správně.">★&nbsp; ZAPAMATOVAT</button></div>
+  <div class="popis">Oprava (můžete přepsat):</div>
+  <input id="navrh" autocomplete="off" spellcheck="false" data-hlas="Pole pro opravu">
+  <div id="veta"></div>
+  <div id="dole">
+    <button id="b_vratit" data-hlas="Vrátit poslední krok">↶&nbsp; VRÁTIT</button>
+    <button id="b_preskocit" data-hlas="Přeskočit">PŘESKOČIT&nbsp; ▶</button>
+    <button id="b_opravit" data-hlas="Opravit a dál">✓&nbsp; OPRAVIT A DÁL</button>
+  </div>
+  <div id="stav"><span id="l_stav"></span>
+    <button id="b_ulozit" data-hlas="Uložit opravy do dokumentu">💾&nbsp; ULOŽIT OPRAVY</button>
+    <button id="b_dokumenty" data-hlas="Jiný dokument">📂&nbsp; JINÝ DOKUMENT</button></div>
+</div>
+
+<script src="hunspell.js"></script>
+<script>
+"use strict";
+/* KOREKTOR – webová verze 0.1 (zkušební). Stejné ovládání jako program KOREKTOR.
+   Opravy se nejdřív jen sbírají („makro“). Teprve po ULOŽIT OPRAVY se stáhne záloha originálu
+   a opravy se zapíšou do původního souboru – i když ho senior mezitím ve Wordu doplnil. */
+const $ = id => document.getElementById(id);
+const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+const MC = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+const HLASKOVANI = { i: "měkké i", "í": "měkké dlouhé í", y: "tvrdé y", "ý": "tvrdé dlouhé ý", "ů": "u s kroužkem",
+  "ú": "u s čárkou", "ě": "e s háčkem", "á": "dlouhé á", "é": "dlouhé é", "ó": "dlouhé ó", "ň": "eň", "ť": "ťé",
+  "ď": "ďé", w: "dvojité vé", x: "iks", q: "kvé", "-": "spojovník", "'": "apostrof", " ": "mezera" };
+const hlaskuj = s => [...s].map(c => HLASKOVANI[c.toLowerCase()] || c.toLowerCase()).join(", ");
+const pocetChyb = n => n === 0 ? "Žádné chyby." : n === 1 ? "Jedna možná chyba." : n <= 4 ? `${n} možné chyby.` : `${n} možných chyb.`;
+const opravSlovy = n => n === 1 ? "1 opravu" : n >= 2 && n <= 4 ? `${n} opravy` : `${n} oprav`;
+const slovSlovy = n => n === 1 ? "1 slovo" : n >= 2 && n <= 4 ? `${n} slova` : `${n} slov`;
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/* ============================================================ úložiště */
+const ls = { get(k, d) { try { const v = localStorage.getItem("korektor." + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+             set(k, v) { try { localStorage.setItem("korektor." + k, JSON.stringify(v)); } catch (e) {} } };
+const db = new Promise((ok, chyba) => { const r = indexedDB.open("korektor", 1);
+  r.onupgradeneeded = () => r.result.createObjectStore("data"); r.onsuccess = () => ok(r.result); r.onerror = () => chyba(r.error); });
+async function dbCti(k) { try { const d = await db; return await new Promise(ok => { const r = d.transaction("data").objectStore("data").get(k);
+  r.onsuccess = () => ok(r.result); r.onerror = () => ok(undefined); }); } catch (e) { return undefined; } }
+async function dbPis(k, v) { try { const d = await db; await new Promise(ok => { const t = d.transaction("data", "readwrite");
+  t.objectStore("data").put(v, k); t.oncomplete = ok; t.onerror = ok; }); } catch (e) {} }
+
+/* ============================================================ hlas */
+let hlas = null, mluvId = 0, fronta = [];
+function vyberHlas() {
+  const h = speechSynthesis.getVoices().filter(v => /^cs/i.test(v.lang));
+  hlas = h.find(v => /vlasta/i.test(v.name)) || h.find(v => /natural|online/i.test(v.name)) || h[0] || null;
+}
+if ("speechSynthesis" in window) { vyberHlas(); speechSynthesis.onvoiceschanged = vyberHlas; }
+function rekni(text, potom) {
+  fronta = []; mluvId++;
+  if (!("speechSynthesis" in window) || !text) return;
+  speechSynthesis.cancel(); promluv(text, mluvId, potom);
+}
+function rekniPotom(text) { if ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending)) fronta.push(text); else rekni(text); }
+function promluv(text, id, potom) {
+  const u = new SpeechSynthesisUtterance(text); u.lang = "cs-CZ"; if (hlas) u.voice = hlas;
+  u.onend = () => { if (id !== mluvId) return; if (fronta.length) promluv(fronta.shift(), id); else if (potom) potom(); };
+  speechSynthesis.speak(u);
+}
+
+/* ============================================================ slovník */
+let hun = null, mujSlovnik = new Set(ls.get("slovnik", [])), cache = new Map();
+const slovnikPripraven = (async () => {
+  const [a, d] = await Promise.all(["slovnik/cs_CZ.aff", "slovnik/cs_CZ.dic"].map(f => fetch(f).then(r => r.arrayBuffer())));
+  hun = await nactiHunspell(a, d);
+})();
+function jeSpravne(s) {
+  if (mujSlovnik.has(s) || mujSlovnik.has(s.toLowerCase())) return true;
+  let v = cache.get(s); if (v === undefined) { v = hun.spell(s.replace(/’/g, "'")); cache.set(s, v); } return v;
+}
+function vzdalenost(a, b) {         // Levenshtein; chyba v háčku/čárce váží méně
+  const zakl = c => c.normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const m = a.length, n = b.length, d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 1; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
+    const x = zakl(a[i - 1]), y = zakl(b[j - 1]);
+    const c = a[i - 1] === b[j - 1] ? 0 : (x === y || (x + y === "iy" || x + y === "yi")) ? 0.5 : 1;   // háček, čárka, i/y = typická chyba
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c);
+  }
+  return d[m][n];
+}
+function navrhy(s) {
+  let n = hun.suggest(s).filter(x => x !== s && (/[\s-]/.test(s) || !/[\s-]/.test(x)));
+  return n.map((x, i) => [x, vzdalenost(s.toLowerCase(), x.toLowerCase()) + i * 0.01]).sort((a, b) => a[1] - b[1]).map(x => x[0]).slice(0, 3);
+}
+function* kandidati(text) {
+  const vynech = [...text.matchAll(/(https?:\/\/|www\.)\S+|\S+@\S+\.\S+/g)].map(m => [m.index, m.index + m[0].length]);
+  for (const m of text.matchAll(/\p{L}+(?:['’]\p{L}+)?/gu)) {
+    const s = m[0];
+    if (s.length < 2 || (s === s.toUpperCase() && s.length <= 5)) continue;   // zkratky ČR, USA
+    if (vynech.some(([a, b]) => m.index >= a && m.index < b)) continue;
+    yield [m.index, m.index + s.length, s];
+  }
+}
+function dalsiChyba(odst, i, od) {
+  for (; i < odst.length; i++, od = 0)
+    for (const [a, b, s] of kandidati(odst[i])) if (a >= od && !jeSpravne(s)) return [i, a, b, s];
+  return null;
+}
+function spocitej(odst, doI = Infinity, doOd = 0) {
+  let n = 0;
+  for (let i = 0; i < odst.length && i <= doI; i++)
+    for (const [a, , s] of kandidati(odst[i])) { if (i === doI && a >= doOd) break; if (!jeSpravne(s)) n++; }
+  return n;
+}
+
+/* ============================================================ ZIP (čtení i zápis) */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipSeznam(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf), dec = new TextDecoder();
+  let e = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error("Soubor není dokument Word.");
+  const pocet = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true); const polozky = [];
+  for (let k = 0; k < pocet; k++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error("Poškozený soubor.");
+    const nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), klen = dv.getUint16(p + 32, true);
+    polozky.push({ jmeno: dec.decode(u8.subarray(p + 46, p + 46 + nlen)), metoda: dv.getUint16(p + 10, true),
+      csize: dv.getUint32(p + 20, true), lho: dv.getUint32(p + 42, true), central: u8.slice(p, p + 46 + nlen + xlen + klen) });
+    p += 46 + nlen + xlen + klen;
+  }
+  return { polozky, konecDat: dv.getUint32(e + 16, true) };
+}
+async function zipCti(buf, jmeno) {
+  const { polozky } = zipSeznam(buf), dv = new DataView(buf), u8 = new Uint8Array(buf);
+  const p = polozky.find(x => x.jmeno === jmeno); if (!p) throw new Error("V souboru chybí text dokumentu.");
+  const start = p.lho + 30 + dv.getUint16(p.lho + 26, true) + dv.getUint16(p.lho + 28, true);
+  const data = u8.subarray(start, start + p.csize);
+  if (p.metoda === 0) return new TextDecoder().decode(data);
+  return await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+}
+async function zipNahrad(buf, jmeno, text) {        // ostatní části souboru se kopírují beze změny (bajt po bajtu)
+  const { polozky, konecDat } = zipSeznam(buf), u8 = new Uint8Array(buf);
+  const surova = new TextEncoder().encode(text), crc = crc32(surova);
+  const komprim = new Uint8Array(await new Response(new Blob([surova]).stream().pipeThrough(new CompressionStream("deflate-raw"))).arrayBuffer());
+  const serazene = [...polozky].sort((a, b) => a.lho - b.lho), casti = [], centraly = []; let pozice = 0;
+  serazene.forEach((p, i) => {
+    const dalsi = i + 1 < serazene.length ? serazene[i + 1].lho : konecDat;
+    const c = p.central.slice(), cdv = new DataView(c.buffer);
+    if (p.jmeno === jmeno) {
+      const jm = new TextEncoder().encode(jmeno), h = new Uint8Array(30 + jm.length), hdv = new DataView(h.buffer);
+      hdv.setUint32(0, 0x04034b50, true); hdv.setUint16(4, 20, true); hdv.setUint16(6, cdv.getUint16(8, true) & 0x0800, true);
+      hdv.setUint16(8, 8, true); hdv.setUint16(10, cdv.getUint16(12, true), true); hdv.setUint16(12, cdv.getUint16(14, true), true);
+      hdv.setUint32(14, crc, true); hdv.setUint32(18, komprim.length, true); hdv.setUint32(22, surova.length, true);
+      hdv.setUint16(26, jm.length, true); h.set(jm, 30);
+      cdv.setUint16(8, cdv.getUint16(8, true) & 0x0800, true); cdv.setUint16(10, 8, true); cdv.setUint32(16, crc, true);
+      cdv.setUint32(20, komprim.length, true); cdv.setUint32(24, surova.length, true);
+      cdv.setUint32(42, pozice, true); casti.push(h, komprim); pozice += h.length + komprim.length;
+    } else {
+      const usek = u8.subarray(p.lho, dalsi); cdv.setUint32(42, pozice, true); casti.push(usek); pozice += usek.length;
+    }
+    centraly.push(c);
+  });
+  const zacCentral = pozice, velCentral = centraly.reduce((s, c) => s + c.length, 0);
+  const konec = new Uint8Array(22), kdv = new DataView(konec.buffer);
+  kdv.setUint32(0, 0x06054b50, true); kdv.setUint16(8, centraly.length, true); kdv.setUint16(10, centraly.length, true);
+  kdv.setUint32(12, velCentral, true); kdv.setUint32(16, zacCentral, true);
+  return new Blob([...casti, ...centraly, konec]);
+}
+
+/* ============================================================ dokument */
+function postavOdstavec(p) {
+  const segmenty = []; let text = "";
+  const projdi = el => { for (const c of el.children) {
+    if (c.localName === "Fallback" && c.namespaceURI === MC) continue;
+    if (c.namespaceURI === W && c.localName === "p") continue;            // vnořený odstavec (textové pole) zvlášť
+    if (c.namespaceURI === W && c.localName === "t") { segmenty.push([c, text.length, text.length + c.textContent.length]); text += c.textContent; continue; }
+    projdi(c); } };
+  projdi(p);
+  return { text, segmenty };
+}
+function jeVeFallbacku(el) { for (let a = el.parentElement; a; a = a.parentElement) if (a.localName === "Fallback" && a.namespaceURI === MC) return true; return false; }
+async function nactiModel(file) {
+  const buf = await file.arrayBuffer(), jm = file.name.toLowerCase();
+  if (jm.endsWith(".docx")) {
+    const xml = await zipCti(buf, "word/document.xml");
+    const dom = new DOMParser().parseFromString(xml, "application/xml");
+    if (dom.getElementsByTagName("parsererror").length) throw new Error("Dokument nejde přečíst.");
+    const pEl = [...dom.getElementsByTagNameNS(W, "p")].filter(p => !jeVeFallbacku(p));
+    const odst = pEl.map(postavOdstavec);
+    return { druh: "docx", buf, dom, pEl, odst, texty: odst.map(o => o.text) };
+  }
+  if (jm.endsWith(".txt")) {
+    const u8 = new Uint8Array(buf); let text, kod = "utf-8"; const bom = u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF;
+    try { text = new TextDecoder("utf-8", { fatal: true }).decode(u8); } catch (e) { text = new TextDecoder("windows-1250").decode(u8); kod = "windows-1250"; }
+    text = text.replace(/^﻿/, "");
+    const nl = text.includes("\r\n") ? "\r\n" : "\n";
+    const texty = text.replace(/\r\n/g, "\n").split("\n");
+    return { druh: "txt", buf, kod, bom, nl, texty };
+  }
+  throw new Error("Umím jen Word (.docx) a text (.txt).");
+}
+function nahradVModelu(m, i, a, b, stare, nove) {      // vrátí false, když tam to slovo už není
+  if (m.texty[i].slice(a, b) !== stare) return false;
+  if (m.druh === "docx") {
+    const od = m.odst[i], prekryte = od.segmenty.filter(([, s, k]) => s < b && k > a);
+    if (!prekryte.length) return false;
+    prekryte.forEach(([t, s], j) => {
+      const tx = t.textContent, z = Math.max(a, s) - s, k = Math.min(b, s + tx.length) - s;
+      t.textContent = j === 0 ? tx.slice(0, z) + nove + tx.slice(k) : tx.slice(0, z) + tx.slice(k);
+      if (t.textContent !== t.textContent.trim()) t.setAttributeNS("http://www.w3.org/XML/1998/namespace", "xml:space", "preserve");
+    });
+    m.odst[i] = postavOdstavec(m.pEl[i]); m.texty[i] = m.odst[i].text;
+  } else m.texty[i] = m.texty[i].slice(0, a) + nove + m.texty[i].slice(b);
+  return true;
+}
+async function modelNaBlob(m) {
+  if (m.druh === "docx") {
+    const xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' + new XMLSerializer().serializeToString(m.dom.documentElement);
+    return await zipNahrad(m.buf, "word/document.xml", xml);
+  }
+  const text = m.texty.join(m.nl);
+  let bajty;
+  if (m.kod === "utf-8") bajty = new TextEncoder().encode(text);
+  else {                                  // windows-1250 zpět
+    const tab = new Map(); const d = new TextDecoder("windows-1250");
+    for (let b = 0; b < 256; b++) tab.set(d.decode(new Uint8Array([b])), b);
+    bajty = new Uint8Array([...text].map(c => tab.has(c) ? tab.get(c) : 63));
+  }
+  return new Blob(m.bom ? [new Uint8Array([0xEF, 0xBB, 0xBF]), bajty] : [bajty]);
+}
+// Najde místo opravy v (možná mezitím změněném) dokumentu podle slova a jeho okolí
+function najdiMisto(m, o) {
+  const sedi = (i, a) => m.texty[i] && m.texty[i].slice(a, a + o.stare.length) === o.stare &&
+    m.texty[i].slice(Math.max(0, a - o.pred.length), a) === o.pred && m.texty[i].slice(a + o.stare.length, a + o.stare.length + o.po.length) === o.po;
+  if (sedi(o.i, o.a)) return [o.i, o.a];
+  const kandidati = [];
+  m.texty.forEach((t, i) => { let a = t.indexOf(o.stare); while (a >= 0) { if (sedi(i, a)) kandidati.push([i, a]); a = t.indexOf(o.stare, a + 1); } });
+  if (kandidati.length) return kandidati.sort((x, y) => Math.abs(x[0] - o.i) - Math.abs(y[0] - o.i))[0];
+  return null;
+}
+
+/* ============================================================ stav aplikace */
+let handle = null, model = null, klic = "", pozice = [0, 0], chyba = null, celkem = 0;
+let opravy = [], historie = [];
+
+function ukazStranku(id) { for (const s of ["vyber", "oprava"]) $(s).classList.toggle("ukazana", s === id); }
+function nastavMeritko() {
+  const m = Math.max(0.45, Math.min(1, innerHeight / 900, innerWidth / 1350));
+  document.documentElement.style.setProperty("--m", m);
+}
+addEventListener("resize", nastavMeritko); nastavMeritko();
+
+async function otevriHandle(h, uvod = "") {
+  try {
+    const f = await h.getFile();
+    await slovnikPripraven;
+    const m = await nactiModel(f);
+    handle = h; model = m; klic = `${f.name}|${f.size}`;
+    const ulozene = ls.get("rozpracovano." + f.name, null);
+    opravy = []; historie = [];
+    if (ulozene && ulozene.opravy && ulozene.opravy.length) {      // neuložené opravy z minula
+      for (const o of ulozene.opravy) { const misto = najdiMisto(model, o); if (misto && nahradVModelu(model, misto[0], misto[1], misto[1] + o.stare.length, o.stare, o.nove)) opravy.push({ ...o, i: misto[0], a: misto[1] }); }
+      uvod += ` Máte neuložené opravy z minula: ${opravy.length}.`;
+    }
+    pozice = ls.get("pozice." + f.name, [0, 0]); if (pozice[0] >= model.texty.length) pozice = [0, 0];
+    await dbPis("posledni", h);
+    celkem = spocitej(model.texty);
+    ukazStranku("oprava");
+    if (!celkem) { hotovo(`${uvod} V dokumentu jsem nenašel žádné chyby.`); return; }
+    dalsi(`${uvod} ${nazev(f.name)}. ${pocetChyb(celkem)}`);
+  } catch (e) {
+    $("v_stav").textContent = "⚠ " + (e.message || "Dokument se nepodařilo otevřít.");
+    rekni("Dokument se nepodařilo otevřít. " + (e.message || ""));
+  }
+}
+const nazev = n => n.replace(/\.[^.]+$/, "").replace(/[_-]/g, " ");
+function ulozRozpracovane() {
+  if (!handle) return;
+  ls.set("pozice." + handle.name, pozice);
+  ls.set("rozpracovano." + handle.name, { opravy });
+  obnovUlozit();
+}
+function obnovUlozit() { $("b_ulozit").innerHTML = `💾&nbsp; ULOŽIT OPRAVY (${opravy.length})`; $("b_ulozit").disabled = !opravy.length; }
+
+function dalsi(uvod = "") {
+  const ch = dalsiChyba(model.texty, pozice[0], pozice[1]);
+  if (!ch) { hotovo(`${uvod} Konec dokumentu. Další chyby už nejsou.`); return; }
+  ukazChybu(ch, uvod);
+}
+function ukazChybu(ch, uvod = "") {
+  chyba = ch; const [i, a, b, s] = ch, text = model.texty[i];
+  $("slovo").textContent = s;
+  $("slovo").style.fontSize = `calc(${s.length <= 12 ? 96 : Math.max(48, Math.round(96 * 12 / s.length))}px * var(--m))`;
+  let z = Math.max(...[".", "!", "?", "…"].map(c => text.lastIndexOf(c, a - 1))) + 1;
+  let k = Math.min(...[".", "!", "?", "…"].map(c => { const x = text.indexOf(c, b); return x < 0 ? Infinity : x + 1; })); if (k === Infinity) k = text.length;
+  if (k - z > 240) { z = Math.max(z, a - 120); k = Math.min(k, b + 120); }
+  $("veta").innerHTML = esc(text.slice(z, a)) + "<b>" + esc(text.slice(a, b)) + "</b>" + esc(text.slice(b, k));
+  const n = navrhy(s);
+  $("navrh").value = n[0] || ""; $("navrh").placeholder = "napište opravu";
+  for (const id of ["b_preskocit", "b_opravit", "b_zapamatovat"]) $(id).disabled = false;
+  $("b_vratit").disabled = !historie.length;
+  const zbyva = spocitej(model.texty) - spocitej(model.texty, i, a);
+  $("l_stav").textContent = `zbývá chyb: ${zbyva}   ·   ${handle.name}`;
+  obnovUlozit();
+  const u = uvod ? uvod + " " : "";
+  rekni(n.length ? `${u}Možná chyba: ${s}. Hláskuji: ${hlaskuj(s)}. Návrh: ${n[0]}. Hláskuji: ${hlaskuj(n[0])}.`
+                 : `${u}Možná chyba: ${s}. Hláskuji: ${hlaskuj(s)}. Návrh nemám. Opravu můžete napsat, nebo přeskočit.`);
+}
+function hotovo(text) {
+  chyba = null; $("slovo").textContent = "HOTOVO  ✓"; $("slovo").style.fontSize = "calc(72px * var(--m))";
+  $("veta").textContent = text.trim(); $("navrh").value = "";
+  for (const id of ["b_preskocit", "b_opravit", "b_zapamatovat"]) $(id).disabled = true;
+  $("b_vratit").disabled = !historie.length; pozice = [0, 0]; ulozRozpracovane();
+  rekni(text + (opravy.length ? " Nezapomeňte kliknout na Uložit opravy." : ""));
+}
+function preskoc() {
+  if (!chyba) return; historie.push({ druh: "preskoceno", chyba });
+  pozice = [chyba[0], chyba[2]]; ulozRozpracovane(); dalsi();
+}
+function zapamatuj() {
+  if (!chyba) return; const s = chyba[3], pred = spocitej(model.texty);
+  mujSlovnik.add(s); ls.set("slovnik", [...mujSlovnik]); cache.clear();
+  celkem -= pred - spocitej(model.texty);
+  historie.push({ druh: "zapamatovano", chyba }); pozice = [chyba[0], chyba[2]]; ulozRozpracovane();
+  rekni(`Zapamatováno: ${s}.`, () => dalsi());
+}
+function oprav() {
+  if (!chyba) return; const [i, a, b, s] = chyba, nove = $("navrh").value.trim();
+  if (!nove) { rekni("Napište opravu, nebo klikněte na Přeskočit."); return; }
+  if (nove === s) return preskoc();
+  const t = model.texty[i], o = { i, a, stare: s, nove, pred: t.slice(Math.max(0, a - 30), a), po: t.slice(b, b + 30) };
+  nahradVModelu(model, i, a, b, s, nove);
+  opravy.push(o); historie.push({ druh: "opraveno", chyba, o });
+  pozice = [i, a + nove.length]; ulozRozpracovane(); dalsi("Opraveno.");
+}
+function vrat() {
+  const h = historie.pop(); if (!h) { rekni("Není co vrátit."); return; }
+  const [i, a, , s] = h.chyba; let uvod = "Zpět.";
+  if (h.druh === "opraveno") { nahradVModelu(model, i, a, a + h.o.nove.length, h.o.nove, s); opravy.splice(opravy.indexOf(h.o), 1); uvod = `Vráceno: ${s}.`; }
+  if (h.druh === "zapamatovano") { mujSlovnik.delete(s); ls.set("slovnik", [...mujSlovnik]); cache.clear(); uvod = `Zapomenuto: ${s}.`; }
+  pozice = [i, a]; ulozRozpracovane(); ukazChybu([i, a, a + s.length, s], uvod);
+}
+
+/* ============================================================ uložení: záloha + opravy do originálu */
+function stahni(blob, jmeno) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = jmeno;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+async function ulozOpravy() {
+  if (!handle || !opravy.length) return;
+  rekni("Ukládám opravy.");
+  try {
+    if ((await handle.queryPermission({ mode: "readwrite" })) !== "granted" &&
+        (await handle.requestPermission({ mode: "readwrite" })) !== "granted") {
+      rekni("Bez povolení nemohu dokument změnit. Klikněte na Povolit."); return;
+    }
+    const f = await handle.getFile();                       // aktuální verze z disku (mohla se mezitím změnit)
+    const puvodni = await f.arrayBuffer();
+    const disk = await nactiModel(new File([puvodni], f.name));
+    let hotovych = 0; const nenalezene = [];
+    for (const o of opravy) {
+      const misto = najdiMisto(disk, o);
+      if (misto && nahradVModelu(disk, misto[0], misto[1], misto[1] + o.stare.length, o.stare, o.nove)) hotovych++;
+      else nenalezene.push(o.stare);
+    }
+    const cas = new Date(), dnes = `${cas.getFullYear()}-${String(cas.getMonth() + 1).padStart(2, "0")}-${String(cas.getDate()).padStart(2, "0")} ${String(cas.getHours()).padStart(2, "0")}-${String(cas.getMinutes()).padStart(2, "0")}`;
+    const jmenoZalohy = `${nazev(f.name)} – záloha ${dnes}${f.name.slice(f.name.lastIndexOf("."))}`;
+    await dbPis("zaloha." + f.name, { jmeno: jmenoZalohy, data: puvodni });   // i v prohlížeči
+    stahni(new Blob([puvodni]), jmenoZalohy);                                // záloha do Stažených souborů
+    const novy = await modelNaBlob(disk);
+    const w = await handle.createWritable();
+    await w.write(novy); await w.close();
+    opravy = []; ulozRozpracovane();
+    $("l_stav").textContent = `✓ Uloženo: ${opravSlovy(hotovych)}. Záloha: ${jmenoZalohy} (Stažené soubory).`;
+    rekni(`Uloženo. Opraveno ${slovSlovy(hotovych)}.` + (nenalezene.length ? ` ${slovSlovy(nenalezene.length)} jsem v dokumentu už nenašel, asi se mezitím změnila.` : "") +
+          " Záloha původního dokumentu je ve Stažených souborech.");
+    model = await nactiModel(await handle.getFile());
+    if (chyba) { const ch = dalsiChyba(model.texty, chyba[0], chyba[1]); if (ch) ukazChybu(ch); }
+  } catch (e) {
+    console.error(e);
+    if (e.name === "NoModificationAllowedError" || e.name === "InvalidStateError" || e.name === "NotReadableError") {
+      $("l_stav").textContent = "⚠ Dokument je otevřený ve Wordu – zavřete ho a klikněte znovu na ULOŽIT OPRAVY.";
+      rekni("Dokument je otevřený ve Wordu. Zavřete ho ve Wordu a klikněte znovu na Uložit opravy.");
+    } else { $("l_stav").textContent = "⚠ Opravy se nepodařilo uložit: " + e.message; rekni("Opravy se nepodařilo uložit."); }
+  }
+}
+
+/* ============================================================ výběr dokumentu */
+async function vyberDokument() {
+  if (!window.showOpenFilePicker) { rekni("Tento prohlížeč to neumí. Otevřete Korektor v Edgi."); return; }
+  try {
+    const [h] = await showOpenFilePicker({ id: "korektor", startIn: "desktop", types: [{ description: "Dokumenty",
+      accept: { "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"], "text/plain": [".txt"] } }] });
+    await otevriHandle(h);
+  } catch (e) { if (e.name !== "AbortError") rekni("Dokument se nepodařilo otevřít."); }
+}
+async function pokracuj() {
+  const h = await dbCti("posledni");
+  if (!h) { rekni("Zatím jste žádný dokument neotevřel."); return; }
+  try { if ((await h.queryPermission({ mode: "read" })) !== "granted" && (await h.requestPermission({ mode: "read" })) !== "granted") return; }
+  catch (e) { rekni("Dokument už není k dispozici."); return; }
+  await otevriHandle(h);
+}
+async function zpetNaVyber() {
+  if (opravy.length) rekni(`Pozor, máte ${opravy.length} neuložených oprav. Zůstanou zapamatované, ale do dokumentu se zapíšou až po kliknutí na Uložit opravy.`);
+  ukazStranku("vyber"); obnovVyber();
+}
+async function obnovVyber() {
+  const h = await dbCti("posledni");
+  $("b_posledni").innerHTML = h ? `↻&nbsp; POKRAČOVAT: ${esc(nazev(h.name)).toUpperCase()}` : "↻&nbsp; POKRAČOVAT";
+  $("b_posledni").disabled = !h;
+}
+
+const zona = $("zona");
+document.addEventListener("dragover", e => { e.preventDefault(); zona.classList.add("nad"); });
+document.addEventListener("dragleave", e => { if (!e.relatedTarget) zona.classList.remove("nad"); });
+document.addEventListener("drop", async e => {
+  e.preventDefault(); zona.classList.remove("nad");
+  const it = [...e.dataTransfer.items].find(i => i.kind === "file");
+  if (!it || !it.getAsFileSystemHandle) { rekni("Přetáhněte prosím soubor Word."); return; }
+  const h = await it.getAsFileSystemHandle();
+  if (!spusteno) start(true);
+  if (h && h.kind === "file") otevriHandle(h);
+});
+
+/* ============================================================ tlačítka, najetí myší, start */
+const klik = (id, f) => $(id).addEventListener("click", () => f());
+klik("b_vybrat", vyberDokument); klik("b_posledni", pokracuj);
+klik("b_preskocit", preskoc); klik("b_opravit", oprav); klik("b_zapamatovat", zapamatuj); klik("b_vratit", vrat);
+klik("b_ulozit", ulozOpravy); klik("b_dokumenty", zpetNaVyber);
+for (const el of document.querySelectorAll("[data-hlas]"))
+  el.addEventListener("mouseenter", () => { if (!el.disabled && spusteno) rekni(el.textContent.includes("POKRAČOVAT:") ? "Pokračovat: " + el.textContent.split(":")[1] : el.dataset.hlas); });
+let napsano = null;
+$("navrh").addEventListener("input", () => { clearTimeout(napsano); napsano = setTimeout(() => { const t = $("navrh").value.trim(); if (t) rekni(`Napsáno: ${t}. Hláskuji: ${hlaskuj(t)}.`); }, 900); });
+$("navrh").addEventListener("keydown", e => { if (e.key === "Enter") oprav(); });
+addEventListener("beforeunload", e => { if (opravy.length) { e.preventDefault(); e.returnValue = ""; } });
+
+let spusteno = false;
+function start(tise = false) {
+  if (spusteno) return; spusteno = true; $("uvod").remove();
+  try { speechSynthesis.speak(new SpeechSynthesisUtterance(" ")); } catch (e) {}
+  obnovVyber();
+  if (!tise) rekni("Korektor. Přetáhněte sem dokument, nebo klikněte na Vybrat dokument.");
+}
+$("uvod").addEventListener("click", () => start());
+document.addEventListener("keydown", e => {
+  if (!spusteno && !(e.ctrlKey || e.altKey || e.metaKey || /^F\d+$/.test(e.key))) { e.preventDefault(); start(); }
+});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
