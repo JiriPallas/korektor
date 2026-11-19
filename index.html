@@ -31,7 +31,7 @@
   #b_zavrit1 { grid-area: 1 / 3 / 2 / 4; }
   #b_posledni { grid-area: 2 / 3 / 3 / 4; overflow-wrap: anywhere; }
   #b_posledni:disabled { visibility: hidden; }
-  #v_stav { font-size: calc(26px * var(--m)); font-weight: bold; min-height: 1.3em; }
+  #v_stav { font-size: calc(30px * var(--m)); font-weight: bold; min-height: 1.3em; color: #8A0000; }
 
   /* ---- oprava ---- */
   #oprava { background: #0B2A66; color: #fff; }
@@ -97,6 +97,7 @@
     <button id="b_zavrit2" class="zavrit" data-hlas="Zavřít korektor">✕&nbsp; ZAVŘÍT</button></div>
 </div>
 
+<input type="file" id="soubor_nahradni" accept=".docx,.txt" hidden>
 <script src="hunspell.js"></script>
 <script>
 "use strict";
@@ -336,15 +337,36 @@ function nastavMeritko() {
 }
 addEventListener("resize", nastavMeritko); nastavMeritko();
 
-async function otevriHandle(h, uvod = "") {
+let nahradniRezim = false;         // prohlížeč nedovolí číst/zapisovat přes handle → klasický výběr, ukládá se kopie
+async function prectiHandle(h) {
+  try { return await h.getFile(); }
+  catch (e) {
+    if (e.name !== "NotAllowedError" && e.name !== "SecurityError") throw e;
+    try { if ((await h.requestPermission({ mode: "read" })) === "granted") return await h.getFile(); } catch (e2) {}
+    throw e;
+  }
+}
+async function otevriHandle(h, uvod = "", souborPrimo = null) {
   try {
-    $("v_stav").textContent = `Otevírám ${h.name}…`;
-    const f = await h.getFile();
+    $("v_stav").textContent = `Otevírám ${h ? h.name : souborPrimo.name}…`;
+    let f;
+    if (souborPrimo) f = souborPrimo;
+    else {
+      try { f = await prectiHandle(h); }
+      catch (e) {
+        if (e.name === "NotAllowedError" || e.name === "SecurityError") {
+          nahradniRezim = true;
+          ukazChybuVyberu("Prohlížeč nedovolil dokument otevřít tímto způsobem. Klikněte prosím ještě jednou na VYBRAT DOKUMENT – otevřu ho jinak.");
+          return;
+        }
+        throw e;
+      }
+    }
     if (!hun) $("v_stav").textContent = "Načítám slovník…";
     await slovnikPripraven;
     $("v_stav").textContent = "Hledám chyby…";
     const m = await nactiModel(f);
-    handle = h; model = m; klic = `${f.name}|${f.size}`;
+    handle = h || { name: f.name, kopie: true }; model = m; klic = `${f.name}|${f.size}`;
     const ulozene = ls.get("rozpracovano." + f.name, null);
     opravy = []; historie = [];
     if (ulozene && ulozene.opravy && ulozene.opravy.length) {      // neuložené opravy z minula
@@ -353,15 +375,15 @@ async function otevriHandle(h, uvod = "") {
     }
     ignorovana = ls.get("ignorovano." + f.name, []);
     pozice = ls.get("pozice." + f.name, [0, 0]); if (pozice[0] >= model.texty.length) pozice = [0, 0];
-    await dbPis("posledni", h);
+    if (h) await dbPis("posledni", h);
     celkem = spocitej(model.texty);
     $("v_stav").textContent = "";
     ukazStranku("oprava");
     if (!celkem) { hotovo(`${uvod} V dokumentu jsem nenašel žádné chyby.`); return; }
     dalsi(`${uvod} ${nazev(f.name)}. ${pocetChyb(celkem)}`);
   } catch (e) {
-    $("v_stav").textContent = "⚠ " + (e.message || "Dokument se nepodařilo otevřít.");
-    rekni("Dokument se nepodařilo otevřít. " + (e.message || ""));
+    ukazStranku("vyber");
+    ukazChybuVyberu(`Dokument ${h.name || ""} se nepodařilo otevřít (${e.name}: ${e.message || "bez popisu"}).`);
   }
 }
 const nazev = n => n.replace(/\.[^.]+$/, "").replace(/[_-]/g, " ");
@@ -477,6 +499,13 @@ function stahni(blob, jmeno) {
 async function ulozOpravy() {
   if (!handle || !opravy.length) return;
   rekni("Ukládám opravy.");
+  if (handle.kopie) {                     // nelze zapsat do originálu → opravená kopie
+    const novy = await modelNaBlob(model), jm = `${nazev(handle.name)} – opraveno${handle.name.slice(handle.name.lastIndexOf("."))}`;
+    stahni(novy, jm); const n = opravy.length; opravy = []; ulozRozpracovane();
+    $("l_stav").textContent = `✓ Uložena opravená kopie: ${jm} (Stažené soubory). Originál se nezměnil.`;
+    rekni(`Uloženo ${opravSlovy(n)} do opravené kopie ve Stažených souborech. Původní dokument se nezměnil.`);
+    return;
+  }
   try {
     if ((await handle.queryPermission({ mode: "readwrite" })) !== "granted" &&
         (await handle.requestPermission({ mode: "readwrite" })) !== "granted") {
@@ -506,6 +535,13 @@ async function ulozOpravy() {
     if (chyba) { const ch = dalsiChyba(model.texty, chyba[0], chyba[1]); if (ch) ukazChybu(ch); }
   } catch (e) {
     console.error(e);
+    if (e.name === "NotAllowedError" || e.name === "SecurityError") {     // prohlížeč nedovolí zápis → opravená kopie
+      const jm = `${nazev(handle.name)} – opraveno${handle.name.slice(handle.name.lastIndexOf("."))}`;
+      stahni(await modelNaBlob(model), jm); const n = opravy.length; opravy = []; ulozRozpracovane();
+      $("l_stav").textContent = `✓ Prohlížeč nedovolil změnit originál – opravená kopie: ${jm} (Stažené soubory).`;
+      rekni(`Prohlížeč nedovolil změnit původní dokument. Uložil jsem ${opravSlovy(n)} do opravené kopie ve Stažených souborech.`);
+      return;
+    }
     if (e.name === "NoModificationAllowedError" || e.name === "InvalidStateError" || e.name === "NotReadableError") {
       $("l_stav").textContent = "⚠ Dokument je otevřený ve Wordu – zavřete ho a klikněte znovu na ULOŽIT OPRAVY.";
       rekni("Dokument je otevřený ve Wordu. Zavřete ho ve Wordu a klikněte znovu na Uložit opravy.");
@@ -514,13 +550,22 @@ async function ulozOpravy() {
 }
 
 /* ============================================================ výběr dokumentu */
+function ukazChybuVyberu(text) { $("v_stav").textContent = "⚠ " + text; rekni(text); console.error("KOREKTOR:", text); }
 async function vyberDokument() {
-  if (!window.showOpenFilePicker) { rekni("Tento prohlížeč to neumí. Otevřete Korektor v Edgi."); return; }
+  if (nahradniRezim || !window.showOpenFilePicker) { $("soubor_nahradni").value = ""; $("soubor_nahradni").click(); return; }
+  if (!window.showOpenFilePicker) { ukazChybuVyberu("Tento prohlížeč neumí vybírat soubory. Otevřete Korektor v Edgi."); return; }
+  $("v_stav").textContent = "Vyberte dokument v okně Windows…";
+  let vybrane;
   try {
-    const [h] = await showOpenFilePicker({ id: "korektor", startIn: "desktop", types: [{ description: "Dokumenty",
-      accept: { "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"], "text/plain": [".txt"] } }] });
-    await otevriHandle(h);
-  } catch (e) { if (e.name !== "AbortError") rekni("Dokument se nepodařilo otevřít."); }
+    vybrane = await showOpenFilePicker({ id: "korektor", startIn: "desktop", multiple: false, excludeAcceptAllOption: false,
+      types: [{ description: "Dokumenty Word a text", accept: { "application/octet-stream": [".docx", ".txt"] } }] });
+  } catch (e) {
+    if (e.name === "AbortError") { $("v_stav").textContent = ""; return; }
+    ukazChybuVyberu(`Okno pro výběr selhalo (${e.name}: ${e.message}).`); return;
+  }
+  const h = vybrane && vybrane[0];
+  if (!h) { ukazChybuVyberu("Prohlížeč nevrátil žádný soubor."); return; }
+  await otevriHandle(h);
 }
 async function pokracuj() {
   const h = await dbCti("posledni");
@@ -539,16 +584,21 @@ async function obnovVyber() {
   $("b_posledni").disabled = !h;
 }
 
+$("soubor_nahradni").addEventListener("change", e => { const f = e.target.files[0]; if (f) otevriHandle(null, "", f); });
 const zona = $("zona");
 document.addEventListener("dragover", e => { e.preventDefault(); zona.classList.add("nad"); });
 document.addEventListener("dragleave", e => { if (!e.relatedTarget) zona.classList.remove("nad"); });
 document.addEventListener("drop", async e => {
   e.preventDefault(); zona.classList.remove("nad");
   const it = [...e.dataTransfer.items].find(i => i.kind === "file");
-  if (!it || !it.getAsFileSystemHandle) { rekni("Přetáhněte prosím soubor Word."); return; }
-  const h = await it.getAsFileSystemHandle();
+  if (!it) { rekni("Přetáhněte prosím soubor Word."); return; }
+  const soubor = it.getAsFile(), slib = it.getAsFileSystemHandle ? it.getAsFileSystemHandle() : null;
   if (!spusteno) start(true);
-  if (h && h.kind === "file") otevriHandle(h);
+  let h = null; try { h = slib ? await slib : null; } catch (er) {}
+  if (h && h.kind === "file" && !nahradniRezim) {
+    try { await prectiHandle(h); otevriHandle(h); return; } catch (er) { nahradniRezim = true; }
+  }
+  if (soubor) otevriHandle(null, "", soubor);
 });
 
 /* ============================================================ tlačítka, najetí myší, start */
