@@ -1,0 +1,24 @@
+{
+  "name": "KOREKTOR web",
+  "short_name": "KOREKTOR",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "lang": "cs",
+  "display": "standalone",
+  "background_color": "#0B2A66",
+  "theme_color": "#0B2A66",
+  "icons": [
+    {
+      "src": "ikona-vlajka-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "ikona-vlajka-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

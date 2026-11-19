@@ -1,6 +1,7 @@
 """Vytvoří jazykové verze KOREKTORU: de/ (KORREKTOR), en/ (PROOFREADER), sv/ (KORREKTUR)
 a ikony s vlajkou pro všechny čtyři. Spustit ze složky KOREKTOR_WEB:  python nastroje/sestav_jazyky.py
-Upravuje se jen index.html a jazyky.js v kořeni – tento skript pak vyrobí podsložky."""
+Všechny čtyři jazyky mají vlastní složku: cs/ de/ en/ sv/. Kořen /korektor/ jen přesměruje na cs/.
+Upravuje se jen nastroje/sablona.html a jazyky.js – tento skript pak vyrobí podsložky."""
 import json, re
 from pathlib import Path
 from PIL import Image, ImageDraw
@@ -57,15 +58,21 @@ def manifest(kod, cil):
                    {"src": "ikona-vlajka-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}]}
     (cil / "manifest.webmanifest").write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
 
-sablona = (KOREN / "index.html").read_text(encoding="utf-8")
+sablona = (KOREN / "nastroje" / "sablona.html").read_text(encoding="utf-8")
 for kod in JAZYKY:
-    cil = KOREN if kod == "cs" else KOREN / kod
+    cil = KOREN / kod
     ikona(kod, cil); manifest(kod, cil)
-    if kod == "cs":
-        continue
     s = re.sub(r"/\*JAZYK\*/.*?/\*/JAZYK\*/", f'/*JAZYK*/const JAZYK = "{kod}", ZAKLAD = "../";/*/JAZYK*/', sablona, flags=re.S)
     s = s.replace('<script src="jazyky.js">', '<script src="../jazyky.js">').replace('<script src="hunspell.js">', '<script src="../hunspell.js">')
     s = s.replace('<html lang="cs">', f'<html lang="{kod}">')
     (cil / "index.html").write_text(s, encoding="utf-8")
     print("hotovo:", kod)
-print("hotovo: cs (ikona + manifest)")
+(KOREN / "index.html").write_text("""<!DOCTYPE html>
+<html lang="cs"><head><meta charset="utf-8"><title>KOREKTOR</title>
+<link rel="icon" href="cs/ikona-vlajka-192.png">
+<meta http-equiv="refresh" content="0; url=cs/">
+<script>location.replace("cs/" + location.search);</script>
+</head><body style="font:32px sans-serif;background:#0B2A66;color:#fff;padding:40px">
+<a href="cs/" style="color:#FFE066">KOREKTOR</a></body></html>
+""", encoding="utf-8")
+print("hotovo: kořen přesměrovává na cs/")

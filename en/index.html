@@ -507,8 +507,8 @@ function ukazChybu(ch, uvod = "") {
   if (k - z > 240) { z = Math.max(z, a - 120); k = Math.min(k, b + 120); }
   $("veta").innerHTML = esc(text.slice(z, a)) + "<b>" + esc(text.slice(a, b)) + "</b>" + esc(text.slice(b, k));
   const n = navrhy(s), kolik = vyskyty(s).length;
-  $("b_vsechny").disabled = kolik < 2;
-  $("b_vsechny").innerHTML = kolik > 1 ? `${J.html.opravitVse} (${kolik})` : J.html.opravitVse;
+  $("b_vsechny").disabled = false;                       // aktivní vždy – i při jediném výskytu (pak = opravit jen toto)
+  $("b_vsechny").innerHTML = `${J.html.opravitVse} (${kolik})`;
   const oVyskytech = kolik > 1 ? T.vyskyty(kolik) : "";
   $("navrh").value = n[0] || ""; $("navrh").placeholder = J.html.napisteOpravu;
   for (const id of ["b_preskocit", "b_opravit", "b_zapamatovat", "b_zapamatovat_vse"]) $(id).disabled = false;
@@ -565,7 +565,7 @@ function opravVsechny() {
   }
   historie.push({ druh: "vsechny", chyba, skupina });
   pozice = [i0, a0 + nove.length]; ulozRozpracovane();
-  dalsi(T.opravenoVse(skupina.length));
+  dalsi(skupina.length === 1 ? T.opraveno : T.opravenoVse(skupina.length));
 }
 function vrat() {
   const h = historie.pop(); if (!h) { rekni(T.neniCoVratit); return; }
@@ -747,7 +747,7 @@ function obnovNastaveni() {
   for (const [kod, j] of Object.entries(JAZYKY)) {
     const b = document.createElement("button"); b.textContent = j.jazyk; b.dataset.hlas = j.jazyk;
     if (kod === JAZYK) b.classList.add("zvoleno");
-    b.onclick = () => { if (kod !== JAZYK) location.href = ZAKLAD + (kod === "cs" ? "" : kod + "/"); };
+    b.onclick = () => { if (kod !== JAZYK) location.href = ZAKLAD + kod + "/"; };
     pridejNajeti(b); box.appendChild(b);
   }
   $("n_hlas").textContent = hlas ? "🔊  " + kratkeJmeno(hlas).toUpperCase() + (hlas.localService ? "" : "  (online)") : "🔊  –";
