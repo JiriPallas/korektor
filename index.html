@@ -45,7 +45,7 @@
            border: 6px solid #FFE000; border-radius: 12px; padding: 4px 16px; width: 100%; }
   #veta { flex: 2; font-size: calc(48px * var(--m)); overflow: hidden; line-height: 1.3; min-height: 0; }
   #veta b { color: #FFE000; text-decoration: underline; }
-  #dole { display: grid; grid-template-columns: 2fr 3fr 3fr; gap: 18px; flex: 3; min-height: 0; }
+  #dole { display: grid; grid-template-columns: 2fr 3fr 3fr 3fr; gap: 18px; flex: 3; min-height: 0; }
   #b_vratit { background: #1E3F85 !important; color: #fff !important; font-size: calc(26px * var(--m)); }
   #b_preskocit { background: #FFE000 !important; border-color: #FFE000 !important; font-size: calc(36px * var(--m)); }
   #b_opravit { background: #00702E !important; color: #fff !important; font-size: calc(36px * var(--m)); }
@@ -53,8 +53,8 @@
   #stav span { flex: 1; color: #FFFFFF; font-size: calc(32px * var(--m)); font-weight: bold; }
   #stav button { font-size: calc(22px * var(--m)); background: #1E3F85 !important; color: #fff !important; }
   #stav button.zavrit, #vyber button.zavrit { background: #A00000 !important; color: #fff !important; border-color: #A00000 !important; }
-  #b_vsechny { background: #00702E !important; color: #fff !important; font-size: calc(24px * var(--m)); display: none; }
-  #b_vsechny.ukazat { display: block; }
+  #b_vsechny { background: #00501F !important; color: #fff !important; border-color: #7CFF9E !important; font-size: calc(30px * var(--m)); }
+  #b_zapamatovat_vse { background: #102E66 !important; color: #fff !important; border-color: #9FC0FF !important; font-size: calc(24px * var(--m)); }
   #b_ulozit { background: #FFE000 !important; color: #000 !important; border-color: #FFE000 !important; }
 
   #uvod { position: fixed; inset: 0; background: #0B2A66; color: #fff; display: flex; flex-direction: column;
@@ -80,15 +80,16 @@
 
 <div id="oprava" class="stranka">
   <div id="horni"><div id="slovo"></div>
-    <button id="b_vsechny" data-hlas="Opravit všechny výskyty">✓✓&nbsp; OPRAVIT VŠECHNY</button>
-    <button id="b_zapamatovat" data-hlas="Zapamatovat. Slovo je správně.">★&nbsp; ZAPAMATOVAT</button></div>
+    <button id="b_zapamatovat" data-hlas="Zapamatovat. Tady je slovo správně.">★&nbsp; ZAPAMATOVAT<br><small>jen toto</small></button>
+    <button id="b_zapamatovat_vse" data-hlas="Zapamatovat všechny. Slovo je správně všude a navždy.">★★&nbsp; ZAPAMATOVAT<br>VŠECHNY</button></div>
   <div class="popis">Oprava (můžete přepsat):</div>
   <input id="navrh" autocomplete="off" spellcheck="false" data-hlas="Pole pro opravu">
   <div id="veta"></div>
   <div id="dole">
     <button id="b_vratit" data-hlas="Vrátit poslední krok">↶&nbsp; VRÁTIT</button>
     <button id="b_preskocit" data-hlas="Přeskočit">PŘESKOČIT&nbsp; ▶</button>
-    <button id="b_opravit" data-hlas="Opravit a dál">✓&nbsp; OPRAVIT A DÁL</button>
+    <button id="b_opravit" data-hlas="Opravit jen toto a dál">✓&nbsp; OPRAVIT<br><small>jen toto</small></button>
+    <button id="b_vsechny" data-hlas="Opravit všechny výskyty">✓✓&nbsp; OPRAVIT<br>VŠECHNY</button>
   </div>
   <div id="stav"><span id="l_stav"></span>
     <button id="b_ulozit" data-hlas="Uložit opravy do dokumentu">💾&nbsp; ULOŽIT OPRAVY</button>
@@ -180,15 +181,20 @@ function* kandidati(text) {
     yield [m.index, m.index + s.length, s];
   }
 }
+let ignorovana = [];            // „zapamatovat jen toto“ – místa v tomto dokumentu, která jsou správně
+function jeIgnorovane(odst, i, a, b, s) {
+  const t = odst[i], pred = t.slice(Math.max(0, a - 30), a), po = t.slice(b, b + 30);
+  return ignorovana.some(x => x.i === i && x.s === s && x.pred === pred && x.po === po);   // přesně toto místo
+}
 function dalsiChyba(odst, i, od) {
   for (; i < odst.length; i++, od = 0)
-    for (const [a, b, s] of kandidati(odst[i])) if (a >= od && !jeSpravne(s)) return [i, a, b, s];
+    for (const [a, b, s] of kandidati(odst[i])) if (a >= od && !jeSpravne(s) && !jeIgnorovane(odst, i, a, b, s)) return [i, a, b, s];
   return null;
 }
 function spocitej(odst, doI = Infinity, doOd = 0) {
   let n = 0;
   for (let i = 0; i < odst.length && i <= doI; i++)
-    for (const [a, , s] of kandidati(odst[i])) { if (i === doI && a >= doOd) break; if (!jeSpravne(s)) n++; }
+    for (const [a, b, s] of kandidati(odst[i])) { if (i === doI && a >= doOd) break; if (!jeSpravne(s) && !jeIgnorovane(odst, i, a, b, s)) n++; }
   return n;
 }
 
@@ -345,6 +351,7 @@ async function otevriHandle(h, uvod = "") {
       for (const o of ulozene.opravy) { const misto = najdiMisto(model, o); if (misto && nahradVModelu(model, misto[0], misto[1], misto[1] + o.stare.length, o.stare, o.nove)) opravy.push({ ...o, i: misto[0], a: misto[1] }); }
       uvod += ` Máte neuložené opravy z minula: ${opravy.length}.`;
     }
+    ignorovana = ls.get("ignorovano." + f.name, []);
     pozice = ls.get("pozice." + f.name, [0, 0]); if (pozice[0] >= model.texty.length) pozice = [0, 0];
     await dbPis("posledni", h);
     celkem = spocitej(model.texty);
@@ -373,7 +380,7 @@ function dalsi(uvod = "") {
 }
 function vyskyty(slovo) {             // všechna místa se stejně napsaným chybným slovem
   const v = [];
-  model.texty.forEach((t, i) => { for (const [a, b, s] of kandidati(t)) if (s === slovo) v.push([i, a, b]); });
+  model.texty.forEach((t, i) => { for (const [a, b, s] of kandidati(t)) if (s === slovo && !jeIgnorovane(model.texty, i, a, b, s)) v.push([i, a, b]); });
   return v;
 }
 function ukazChybu(ch, uvod = "") {
@@ -386,11 +393,11 @@ function ukazChybu(ch, uvod = "") {
   if (k - z > 240) { z = Math.max(z, a - 120); k = Math.min(k, b + 120); }
   $("veta").innerHTML = esc(text.slice(z, a)) + "<b>" + esc(text.slice(a, b)) + "</b>" + esc(text.slice(b, k));
   const n = navrhy(s), kolik = vyskyty(s).length;
-  $("b_vsechny").classList.toggle("ukazat", kolik > 1);
-  $("b_vsechny").innerHTML = `✓✓&nbsp; OPRAVIT VŠECHNY (${kolik})`;
-  const oVyskytech = kolik > 1 ? ` Toto slovo je v dokumentu ${kolik}krát. Všechny opravíte tlačítkem Opravit všechny, nebo pravým tlačítkem myši na Opravit a dál.` : "";
+  $("b_vsechny").disabled = kolik < 2;
+  $("b_vsechny").innerHTML = kolik > 1 ? `✓✓&nbsp; OPRAVIT<br>VŠECHNY (${kolik})` : "✓✓&nbsp; OPRAVIT<br>VŠECHNY";
+  const oVyskytech = kolik > 1 ? ` Toto slovo je v dokumentu ${kolik}krát.` : "";
   $("navrh").value = n[0] || ""; $("navrh").placeholder = "napište opravu";
-  for (const id of ["b_preskocit", "b_opravit", "b_zapamatovat"]) $(id).disabled = false;
+  for (const id of ["b_preskocit", "b_opravit", "b_zapamatovat", "b_zapamatovat_vse"]) $(id).disabled = false;
   $("b_vratit").disabled = !historie.length;
   const zbyva = spocitej(model.texty) - spocitej(model.texty, i, a);
   $("l_stav").textContent = `zbývá chyb: ${zbyva}   ·   ${handle.name}`;
@@ -402,8 +409,7 @@ function ukazChybu(ch, uvod = "") {
 function hotovo(text) {
   chyba = null; $("slovo").textContent = "HOTOVO  ✓"; $("slovo").style.fontSize = "calc(72px * var(--m))";
   $("veta").textContent = text.trim(); $("navrh").value = "";
-  for (const id of ["b_preskocit", "b_opravit", "b_zapamatovat"]) $(id).disabled = true;
-  $("b_vsechny").classList.remove("ukazat");
+  for (const id of ["b_preskocit", "b_opravit", "b_zapamatovat", "b_zapamatovat_vse", "b_vsechny"]) $(id).disabled = true;
   $("b_vratit").disabled = !historie.length; pozice = [0, 0]; ulozRozpracovane();
   rekni(text + (opravy.length ? " Nezapomeňte kliknout na Uložit opravy." : ""));
 }
@@ -411,12 +417,19 @@ function preskoc() {
   if (!chyba) return; historie.push({ druh: "preskoceno", chyba });
   pozice = [chyba[0], chyba[2]]; ulozRozpracovane(); dalsi();
 }
+function zapamatujToto() {
+  if (!chyba) return; const [i, a, b, s] = chyba, t = model.texty[i];
+  const zaznam = { i, s, pred: t.slice(Math.max(0, a - 30), a), po: t.slice(b, b + 30) };
+  ignorovana.push(zaznam); ls.set("ignorovano." + handle.name, ignorovana);
+  historie.push({ druh: "zapamatovano_toto", chyba, zaznam }); pozice = [i, b]; ulozRozpracovane();
+  rekni(`Zapamatováno jen tady: ${s}.`, () => dalsi());
+}
 function zapamatuj() {
   if (!chyba) return; const s = chyba[3], pred = spocitej(model.texty);
   mujSlovnik.add(s); ls.set("slovnik", [...mujSlovnik]); cache.clear();
   celkem -= pred - spocitej(model.texty);
   historie.push({ druh: "zapamatovano", chyba }); pozice = [chyba[0], chyba[2]]; ulozRozpracovane();
-  rekni(`Zapamatováno: ${s}.`, () => dalsi());
+  rekni(`Zapamatováno všude: ${s}. Už se nikdy nebude hlásit.`, () => dalsi());
 }
 function oprav() {
   if (!chyba) return; const [i, a, b, s] = chyba, nove = $("navrh").value.trim();
@@ -448,6 +461,9 @@ function vrat() {
   if (h.druh === "vsechny") {
     for (const o of [...h.skupina].reverse()) { nahradVModelu(model, o.i, o.a, o.a + o.nove.length, o.nove, o.stare); opravy.splice(opravy.indexOf(o), 1); }
     uvod = `Vráceno ${h.skupina.length} oprav: ${s}.`;
+  }
+  if (h.druh === "zapamatovano_toto") {
+    ignorovana.splice(ignorovana.indexOf(h.zaznam), 1); ls.set("ignorovano." + handle.name, ignorovana); uvod = `Zapomenuto: ${s}.`;
   }
   if (h.druh === "zapamatovano") { mujSlovnik.delete(s); ls.set("slovnik", [...mujSlovnik]); cache.clear(); uvod = `Zapomenuto: ${s}.`; }
   pozice = [i, a]; ulozRozpracovane(); ukazChybu([i, a, a + s.length, s], uvod);
@@ -538,10 +554,10 @@ document.addEventListener("drop", async e => {
 /* ============================================================ tlačítka, najetí myší, start */
 const klik = (id, f) => $(id).addEventListener("click", () => f());
 klik("b_vybrat", vyberDokument); klik("b_posledni", pokracuj);
-klik("b_preskocit", preskoc); klik("b_opravit", oprav); klik("b_zapamatovat", zapamatuj); klik("b_vratit", vrat);
+klik("b_preskocit", preskoc); klik("b_opravit", oprav); klik("b_vratit", vrat);
+klik("b_zapamatovat", zapamatujToto); klik("b_zapamatovat_vse", zapamatuj);
 klik("b_ulozit", ulozOpravy); klik("b_dokumenty", zpetNaVyber);
 klik("b_vsechny", opravVsechny);
-$("b_opravit").addEventListener("contextmenu", e => { e.preventDefault(); if ($("b_vsechny").classList.contains("ukazat")) opravVsechny(); else oprav(); });
 let zavritCas = 0;
 function zavri() {
   if (opravy.length && performance.now() - zavritCas > 5000) {
