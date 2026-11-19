@@ -276,7 +276,7 @@ function* kandidati(text) {
 let ignorovana = [];            // „zapamatovat jen toto“ – místa v tomto dokumentu, která jsou správně
 function jeIgnorovane(odst, i, a, b, s) {
   const t = odst[i], pred = t.slice(Math.max(0, a - 30), a), po = t.slice(b, b + 30);
-  return ignorovana.some(x => x.i === i && x.s === s && x.pred === pred && x.po === po);   // přesně toto místo
+  return ignorovana.some(x => x.i === i && x.s === s && (x.pred === pred || x.po === po));   // toto místo (stačí okolí z jedné strany)
 }
 function dalsiChyba(odst, i, od) {
   for (; i < odst.length; i++, od = 0)
