@@ -68,7 +68,8 @@
   #nast .rada { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 14px; flex: 1; min-height: calc(60px * var(--m)); }
   #nast button { background: #000; color: #fff; border: 4px solid #000; font-size: calc(26px * var(--m)); }
   #nast button.zvoleno { background: #fff; color: #000; border: 6px solid #000; }
-  #nast #b_slovnik { background: #000 !important; color: #fff !important; border: 4px solid #000 !important; font-size: calc(26px * var(--m)) !important; padding: 0; margin: 0; width: auto; }
+  #n_slovnik_volby { display: flex; flex-direction: column; gap: 8px; }
+  #nast #b_vybrat_sl, #nast #b_vytvorit_sl { background: #000 !important; color: #fff !important; border: 4px solid #000 !important; font-size: calc(26px * var(--m)) !important; padding: 0; margin: 0; width: auto; }
   #n_hotovo { background: #00702E !important; flex: 1; }
   #b_nastaveni { font-size: calc(22px * var(--m)) !important; padding: 6px 18px; align-self: flex-start; background: #FFF6C0 !important; border: 3px solid #000 !important; }
   #dolni { display: flex; gap: 18px; align-items: center; }
@@ -126,7 +127,10 @@
   <div class="rada"><button id="n_mensi" data-t="nMensi" data-h="mensi"></button><button id="n_vetsi" data-t="nVetsi" data-h="vetsi"></button></div>
   <div class="popis" data-t="nSlovnik"></div>
   <div class="popis" id="n_slovnik_stav" style="font-weight:normal"></div>
-  <div class="rada"><button id="b_slovnik" data-t="nPripojit" data-h="pripojit"></button></div>
+  <div id="n_slovnik_volby">
+    <div class="rada"><button id="b_vybrat_sl" data-t="nVybratSl" data-h="vybratSl"></button><button id="b_vytvorit_sl" data-t="nVytvoritSl" data-h="vytvoritSl"></button></div>
+    <div class="popis" style="font-weight:normal" data-t="nVarovaniSl"></div>
+  </div>
   <div class="rada"><button id="n_hotovo" data-t="nHotovo" data-h="hotovo"></button></div>
 </div>
 
@@ -201,13 +205,29 @@ async function prectiSouborSlovniku(h) {
   const text = await (await h.getFile()).text();
   return text.replace(/^\uFEFF/, "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
 }
-async function zapisSlovnik() {
+/* Bezpečný zápis: soubor se vždy znovu přečte a sloučí (program mohl mezitím přidat slova);
+   když se přečíst nedá, nic se nezapíše; slov nikdy neubyde – kromě jednoho výslovně zapomenutého.
+   Zápisy jdou za sebou (fronta), nikdy dva najednou. */
+let frontaZapisu = Promise.resolve();
+function zapisSlovnik(odebrat = null) {
   ls.set("slovnik", [...mujSlovnik]);
-  if (!slovnikSoubor) return;
-  try {
-    const w = await slovnikSoubor.createWritable();
-    await w.write([...mujSlovnik].sort((a, b) => a.localeCompare(b, J.lang)).join("\r\n") + "\r\n"); await w.close();
-  } catch (e) { console.warn("Slovník se nepodařilo zapsat do souboru:", e); }
+  if (!slovnikSoubor) return Promise.resolve();
+  const h = slovnikSoubor;
+  frontaZapisu = frontaZapisu.then(async () => {
+    try {
+      const puvodni = await prectiSouborSlovniku(h);
+      puvodni.forEach(x => mujSlovnik.add(x));
+      if (odebrat) mujSlovnik.delete(odebrat);
+      cache.clear(); ls.set("slovnik", [...mujSlovnik]);
+      const stejne = new Set(puvodni);
+      if (mujSlovnik.size === stejne.size && [...mujSlovnik].every(x => stejne.has(x))) return;   // není co zapsat
+      if (mujSlovnik.size < stejne.size - (odebrat ? 1 : 0)) return;                              // pojistka
+      const w = await h.createWritable();
+      await w.write([...mujSlovnik].sort((a, b) => a.localeCompare(b, J.lang)).join("\r\n") + "\r\n"); await w.close();
+    } catch (e) { console.warn("Slovník se nepodařilo bezpečně zapsat – nic jsem nezměnil:", e); }
+    obnovStavSlovniku();
+  });
+  return frontaZapisu;
 }
 async function slovnikSeSouborem(h) {          // načte soubor, sloučí s prohlížečem a zapíše zpět
   const zeSouboru = await prectiSouborSlovniku(h);
@@ -217,32 +237,41 @@ async function slovnikSeSouborem(h) {          // načte soubor, sloučí s proh
   obnovStavSlovniku();
   return mujSlovnik.size - pred;
 }
-async function pripojSlovnik(automaticky = false) {   // volat z kliknutí (prohlížeč chce souhlas uživatele)
+async function pripojSlovnik() {   // při startu: jen dřív připojený soubor – žádné okno se samo neotevře
   try {
-    let h = await dbCti("slovnikSoubor");
+    const h = await dbCti("slovnikSoubor");
     if (h) {
       let stav = await h.queryPermission({ mode: "readwrite" });
       if (stav === "prompt") stav = await h.requestPermission({ mode: "readwrite" });
-      if (stav === "granted") { await slovnikSeSouborem(h); return; }
-      if (automaticky) { obnovStavSlovniku(); return; }
+      if (stav === "granted") await slovnikSeSouborem(h);
     }
-    if (automaticky && ls.get("slovnikOdlozen", false)) { obnovStavSlovniku(); return; }
-    if (!window.showSaveFilePicker) { obnovStavSlovniku(); return; }
-    rekni(T.pripojteSlovnik);
-    h = await showSaveFilePicker({ id: `korektor-slovnik-${JAZYK}`, startIn: "documents", suggestedName: JMENO_SLOVNIKU,
-      types: [{ description: T.popisSlovniku, accept: { "text/plain": [".txt"] } }] });
-    await dbPis("slovnikSoubor", h); ls.set("slovnikOdlozen", false);
-    const nova = await slovnikSeSouborem(h);
+  } catch (e) { console.warn("Slovník:", e); }
+  obnovStavSlovniku();
+}
+async function vyberSlovnik(vytvorit) {     // vytvorit=false: okno Otevřít (nic nesmaže); true: okno Uložit (nový slovník)
+  try {
+    const typy = [{ description: T.popisSlovniku, accept: { "text/plain": [".txt"] } }];
+    let h;
+    if (vytvorit) {
+      rekni(T.vytvorteSlovnik);
+      h = await showSaveFilePicker({ id: `korektor-slovnik-${JAZYK}`, startIn: "documents", suggestedName: JMENO_SLOVNIKU, types: typy });
+    } else {
+      rekni(T.vyberteSlovnik);
+      [h] = await showOpenFilePicker({ id: `korektor-slovnik-${JAZYK}`, startIn: "documents", multiple: false, types: typy });
+      if ((await h.requestPermission({ mode: "readwrite" })) !== "granted") { rekni(T.bezPovoleni); return; }
+    }
+    await dbPis("slovnikSoubor", h);
+    await slovnikSeSouborem(h);
     rekni(T.slovnikPripojen(mujSlovnik.size));
   } catch (e) {
-    if (e.name === "AbortError") { ls.set("slovnikOdlozen", true); rekni(T.slovnikOdlozen); }
-    else console.warn("Slovník:", e);
-    obnovStavSlovniku();
+    if (e.name !== "AbortError") { console.warn("Slovník:", e); rekni(T.slovnikNenacten(e.message)); }
   }
+  obnovStavSlovniku();
 }
 function obnovStavSlovniku() {
   const text = slovnikSoubor ? T.slovnikStav(slovnikSoubor.name, mujSlovnik.size) : T.slovnikNepripojen;
   $("n_slovnik_stav").textContent = text; $("l_slovnik_maly").textContent = text;
+  $("n_slovnik_volby").style.display = slovnikSoubor ? "none" : "";
 }
 function jeSpravne(s) {
   if (mujSlovnik.has(s) || mujSlovnik.has(s.toLowerCase())) return true;
@@ -578,7 +607,7 @@ function vrat() {
   if (h.druh === "zapamatovano_toto") {
     ignorovana.splice(ignorovana.indexOf(h.zaznam), 1); ls.set("ignorovano." + handle.name, ignorovana); uvod = T.zapomenuto(s);
   }
-  if (h.druh === "zapamatovano") { mujSlovnik.delete(s); cache.clear(); zapisSlovnik(); uvod = T.zapomenuto(s); }
+  if (h.druh === "zapamatovano") { mujSlovnik.delete(s); cache.clear(); zapisSlovnik(s); uvod = T.zapomenuto(s); }
   pozice = [i, a]; ulozRozpracovane(); ukazChybu([i, a, a + s.length, s], uvod);
 }
 
@@ -697,7 +726,7 @@ klik("b_preskocit", preskoc); klik("b_opravit", oprav); klik("b_vratit", vrat);
 klik("b_zapamatovat", zapamatujToto); klik("b_zapamatovat_vse", zapamatuj);
 klik("b_ulozit", ulozOpravy); klik("b_dokumenty", zpetNaVyber);
 klik("b_vsechny", opravVsechny);
-klik("b_slovnik", () => { ls.set("slovnikOdlozen", false); pripojSlovnik(); });
+klik("b_vybrat_sl", () => vyberSlovnik(false)); klik("b_vytvorit_sl", () => vyberSlovnik(true));
 klik("b_nastaveni", otevriNastaveni); klik("b_nastaveni2", otevriNastaveni); klik("n_hotovo", zavriNastaveni);
 klik("n_hlas", dalsiHlas);
 klik("n_pomaleji", () => zmenRychlost(-0.1)); klik("n_rychleji", () => zmenRychlost(+0.1));
@@ -732,7 +761,7 @@ function start(tise = false) {
   try { speechSynthesis.speak(new SpeechSynthesisUtterance(" ")); } catch (e) {}
   obnovVyber(); obnovStavSlovniku();
   if (!tise) rekni(T.start);
-  pripojSlovnik(true);              // kliknutí na úvod = souhlas uživatele → smí se zeptat na povolení
+  pripojSlovnik();                  // kliknutí na úvod = souhlas uživatele → smí se zeptat na povolení k dřív připojenému souboru
 }
 $("uvod").addEventListener("click", () => start());
 document.addEventListener("keydown", e => {
